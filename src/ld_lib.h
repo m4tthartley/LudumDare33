@@ -116,14 +116,14 @@ void LD_CreateWindow
 	glViewport(0, 0, Width, Height);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(0, Width, Height, 0, -10, 10);
+	glOrtho(0, Width, Height, 0, -100, 100);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glClearColor(1.0, 0.0, 1.0, 1.0);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	//glEnable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
 	glAlphaFunc(GL_GREATER, 0.0f);
 	glEnable(GL_ALPHA_TEST);
 }
@@ -242,16 +242,22 @@ typedef struct
 	f32 Height;
 } ld_sprite;
 
+float ZIndex = 0.0f;
+void SetZIndex (float Z)
+{
+	ZIndex = Z;
+}
+
 void LD_RDrawQuad (f32 X, f32 Y, f32 Width, f32 Height, color Color)
 {
 	glDisable(GL_TEXTURE_2D);
 	glColor4f(Color.R, Color.G, Color.B, Color.A);
 	glBegin(GL_QUADS);
 	{
-		glVertex3f(X, Y, 0.0f);
-		glVertex3f(X+Width, Y, 0.0f);
-		glVertex3f(X+Width, Y+Height, 0.0f);
-		glVertex3f(X, Y+Height, 0.0f);
+		glVertex3f(X, Y, ZIndex);
+		glVertex3f(X+Width, Y, ZIndex);
+		glVertex3f(X+Width, Y+Height, ZIndex);
+		glVertex3f(X, Y+Height, ZIndex);
 	}
 	glEnd();
 }
@@ -272,13 +278,13 @@ void LD_RDrawSprite (ld_sprite Sprite, f32 X, f32 Y, f32 Scale)
 		float SH = (Sprite.YOffset+Sprite.Height)/(f32)Sprite.Texture.Height;
 
 		glTexCoord2f(SX, SY);
-		glVertex3f(X, Y, 0.0f);
+		glVertex3f(X, Y, ZIndex);
 		glTexCoord2f(SW, SY);
-		glVertex3f(X+Width, Y, 0.0f);
+		glVertex3f(X+Width, Y, ZIndex);
 		glTexCoord2f(SW, SH);
-		glVertex3f(X+Width, Y+Height, 0.0f);
+		glVertex3f(X+Width, Y+Height, ZIndex);
 		glTexCoord2f(SX, SH);
-		glVertex3f(X, Y+Height, 0.0f);
+		glVertex3f(X, Y+Height, ZIndex);
 	}
 	glEnd();
 }
@@ -299,13 +305,13 @@ void LD_RDrawSpriteWithColor (ld_sprite Sprite, f32 X, f32 Y, f32 Scale, color C
 		float SH = (Sprite.YOffset+Sprite.Height)/(f32)Sprite.Texture.Height;
 
 		glTexCoord2f(SX, SY);
-		glVertex3f(X, Y, 0.0f);
+		glVertex3f(X, Y, ZIndex);
 		glTexCoord2f(SW, SY);
-		glVertex3f(X+Width, Y, 0.0f);
+		glVertex3f(X+Width, Y, ZIndex);
 		glTexCoord2f(SW, SH);
-		glVertex3f(X+Width, Y+Height, 0.0f);
+		glVertex3f(X+Width, Y+Height, ZIndex);
 		glTexCoord2f(SX, SH);
-		glVertex3f(X, Y+Height, 0.0f);
+		glVertex3f(X, Y+Height, ZIndex);
 	}
 	glEnd();
 }
@@ -534,8 +540,8 @@ void LD_LoadBitmap (ld_texture *Texture, char *FileName)
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 					
 		Texture->Width = ImageHeader->Width;
 		Texture->Height = ImageHeader->Height;
