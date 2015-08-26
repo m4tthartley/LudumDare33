@@ -311,12 +311,13 @@ typedef struct
 #define TREES_ATTACK_SCORE 3
 #define TREES_MOVE_SCORE 10
 
-int CALLBACK WinMain(
-	HINSTANCE hInstance,
-	HINSTANCE hPrevInstance,
-	LPSTR     lpCmdLine,
-	int       nCmdShow
-)
+// int CALLBACK WinMain(
+// 	HINSTANCE hInstance,
+// 	HINSTANCE hPrevInstance,
+// 	LPSTR     lpCmdLine,
+// 	int       nCmdShow
+// )
+ProgramEntryPoint()
 {
 	srand(33);
 

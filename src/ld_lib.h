@@ -36,15 +36,74 @@ typedef s32 b32;
 
 #define Assert(Expression) if(!(Expression)){*((int*)0) = 0;}
 
+#define __WIN32 _WIN32
+#define __MACOS defined(__APPLE__)&&defined(__MACH__)
+
+#if __WIN32
+#define ProgramEntryPoint int CALLBACK WinMain(\
+	HINSTANCE hInstance,\
+	HINSTANCE hPrevInstance,\
+	LPSTR     lpCmdLine,\
+	int       nCmdShow)
+#elif __MACOS
+#define ProgramEntryPoint() int main (int ArgCount, char *Args[])
+#endif
+
+#if __WIN32
 #include <windows.h>
 #include <GL/gl.h>
-#define SDL_MAIN_HANDLED
+#elif __MACOS
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <OpenGL/gl.h>
+#endif
+
+//#define SDL_MAIN_HANDLED
+#if __WIN32
 #include "../lib/sdl2/SDL.h"
+#elif __MACOS
+#include "../lib/SDL2.framework/Headers/SDL.h"
+#endif
 
 #define Struct(Name, Members) typedef struct {Members} Name;
 
-#if _WIN32
-#define MemoryAlloc(Size) VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE)
+#if __WIN32
+//#define MemoryAlloc(Size) VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE)
+inline
+void *MemoryAlloc (size_t Size)
+{
+	return VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+}
+#elif __MACOS
+//#define MemoryAlloc(Size)
+// Apprently for clang inline function need a non-inline version as well
+//inline
+void *MemoryAlloc (size_t Size)
+{
+	void *Memory;
+	//mmap(Memory, Size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, 0, 0);
+	Memory = malloc(Size);
+	return Memory;
+}
+#endif
+
+#if __WIN32
+#define ZeroMem(Memory, Size) ZeroMemory(Memory, Size);
+#elif __MACOS
+#define ZeroMem(Memory, Size) memset(Memory, 0, Size);
+#endif
+
+#if __WIN32
+#define PRINT(Text, ...) \
+	{char TextBuffer[256];\
+	sprintf(TextBuffer, Text"\n", __VA_ARGS__);\
+	OutputDebugString(TextBuffer);}
+#elif __MACOS
+#define PRINT(Text, ...) printf(Text"\n", ##__VA_ARGS__)
 #endif
 
 typedef struct
@@ -60,7 +119,7 @@ void *PushMemory (memory_arena *Arena, size_t Size)
 {
 	Assert(Arena->Used + Size <= Arena->Size);
 	u8 *Memory = (u8*)Arena->Memory + Arena->Used;
-	ZeroMemory(Memory, Size);
+	ZeroMem(Memory, Size);
 	Arena->Used += Size;
 	return Memory;
 }
@@ -78,6 +137,9 @@ typedef struct
 	SDL_GLContext GLContext;
 } ld_window;
 
+static int _Frames = 0;
+static int _Time = 0;
+
 void _InitSound ();
 
 void _InitSDL ()
@@ -87,7 +149,7 @@ void _InitSDL ()
 	int32_t InitResult = SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO);
 	if (InitResult != 0)
 	{
-		OutputDebugString("SDL_Init failed...");
+		PRINT("SDL_Init failed...");
 	}
 
 	_InitSound();
@@ -97,7 +159,7 @@ void LD_CreateWindow
 (ld_window *Window, uint32_t Width, uint32_t Height, char *Title)
 {
 	TransientArena.Size = 256000; // 256k
-	TransientArena.Memory = (void*)MemoryAlloc(TransientArena.Size);
+	TransientArena.Memory = MemoryAlloc(TransientArena.Size);
 	TransientArena.Used = 0;
 
 	_InitSDL();
@@ -108,7 +170,7 @@ void LD_CreateWindow
 		SDL_WINDOW_SHOWN|SDL_WINDOW_OPENGL);
 	if (!Window->Handle)
 	{
-		OutputDebugString("SDL_CreateWindow failed...");
+		PRINT("SDL_CreateWindow failed...");
 	}
 
 	Window->GLContext = SDL_GL_CreateContext(Window->Handle);
@@ -126,6 +188,8 @@ void LD_CreateWindow
 	glEnable(GL_DEPTH_TEST);
 	glAlphaFunc(GL_GREATER, 0.0f);
 	glEnable(GL_ALPHA_TEST);
+
+	_Time = SDL_GetTicks();
 }
 
 enum
@@ -209,6 +273,14 @@ void LD_UpdateWindow (ld_window *Window)
 	}
 
 	SDL_GL_SwapWindow(Window->Handle);
+
+	/*++_Frames;
+	if (SDL_GetTicks() - _Time > 1000)
+	{
+		_Time = SDL_GetTicks();
+		PRINT("Frames %i", _Frames);
+		_Frames = 0;
+	}*/
 }
 
 void LD_Exit ()
@@ -386,6 +458,7 @@ typedef enum
 	File_FailedToRead
 } file_result;
 
+#if __WIN32
 file_result LD_ReadFile (u8 **Data, char *FileName)
 {
 	file_result FileResult = File_Success;
@@ -425,6 +498,26 @@ file_result LD_ReadFile (u8 **Data, char *FileName)
 	}
 	return FileResult;
 }
+#elif __MACOS
+file_result LD_ReadFile (u8 **Data, char *FileName)
+{
+	s32 FileHandle = open(FileName, O_RDONLY);
+	if (FileHandle > -1)
+	{
+		struct stat FileInfo = {0};
+		s32 StatResult = fstat(FileHandle, &FileInfo);
+		if (StatResult == 0)
+		{
+			/*void *FileData*/ *Data = MemoryAlloc(FileInfo.st_size);
+
+			read(FileHandle, *Data, FileInfo.st_size);
+			
+		}
+	}
+
+	return File_Success;
+}
+#endif
 
 file_result LD_LoadBitmapData (u32 **ImageData, char *FileName)
 {
@@ -594,11 +687,6 @@ u32 AudioLength;
 SDL_AudioSpec AudioSpec;
 
 //SDL_AudioFormat AudioFormat;
-
-#define PRINT(Text, ...) \
-	{char TextBuffer[256];\
-	sprintf(TextBuffer, Text"\n", __VA_ARGS__);\
-	OutputDebugString(TextBuffer);}
 
 void LD_LoadWav (sound_asset *SoundAsset, char *FileName)
 {
